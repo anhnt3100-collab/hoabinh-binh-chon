@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Quản lý bình chọn</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="card wide">
+  <p class="eyebrow">Quản lý</p>
+  <h1 id="title">Quản lý bình chọn</h1>
+
+  <form id="login" class="row">
+    <input id="key" type="password" placeholder="Nhập mã quản trị (ADMIN_KEY)" autocomplete="current-password">
+    <button class="btn" type="submit">Vào</button>
+  </form>
+  <p id="msg" class="msg" role="status"></p>
+
+  <section id="panel" class="hidden">
+    <p id="deadline" class="deadline"></p>
+    <div class="bar-row"><span>A</span><div class="bar"><i id="barA"></i></div><b id="countA">0</b></div>
+    <div class="bar-row"><span>B</span><div class="bar"><i id="barB" class="b"></i></div><b id="countB">0</b></div>
+    <div class="row">
+      <button class="btn" id="copy" type="button">Sao chép kết quả</button>
+      <button class="btn ghost" id="logout" type="button">Thoát</button>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Tên</th><th>Chọn</th><th>Giờ bỏ phiếu</th><th>Sửa lần cuối</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let key = sessionStorage.getItem("hb_admin_key") || "";
+let data = null;
+const fmt = (s) => new Date(s).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+
+function render(d) {
+  data = d;
+  $("title").textContent = "Quản lý: " + d.title;
+  $("deadline").textContent = (d.closed ? "Đã hết hạn: " : "Hạn: ") + fmt(d.deadline) + " (giờ VN)";
+  $("deadline").classList.toggle("closed", d.closed);
+  const { A, B } = d.counts, t = d.total;
+  $("countA").textContent = A; $("countB").textContent = B;
+  $("barA").style.width = t ? (A / t * 100) + "%" : "0";
+  $("barB").style.width = t ? (B / t * 100) + "%" : "0";
+
+  const tbody = $("rows");
+  tbody.replaceChildren();
+  d.votes.forEach((v, i) => {
+    const tr = document.createElement("tr");
+    const cells = [String(i + 1), v.name, null, fmt(v.createdAt), fmt(v.updatedAt)];
+    cells.forEach((c, j) => {
+      const td = document.createElement("td");
+      if (j === 2) {
+        const s = document.createElement("span");
+        s.className = "tag " + v.choice;
+        s.textContent = v.choice;
+        td.append(s);
+      } else td.textContent = c;
+      tr.append(td);
+    });
+    const td = document.createElement("td");
+    const del = document.createElement("button");
+    del.className = "btn danger";
+    del.textContent = "Xoá";
+    del.onclick = () => remove(v);
+    td.append(del);
+    tr.append(td);
+    tbody.append(tr);
+  });
+  if (!d.votes.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="6" class="muted">Chưa có phiếu nào.</td>';
+    tbody.append(tr);
+  }
+}
+
+async function load() {
+  if (!key) return;
+  try {
+    const r = await fetch("/api/votes?admin=1", { headers: { "x-admin-key": key } });
+    const d = await r.json();
+    if (!r.ok) {
+      $("msg").textContent = d.error || "Không tải được.";
+      $("msg").dataset.err = "1";
+      if (r.status === 401) logout(false);
+      return;
+    }
+    $("msg").textContent = ""; delete $("msg").dataset.err;
+    sessionStorage.setItem("hb_admin_key", key);
+    $("login").classList.add("hidden");
+    $("panel").classList.remove("hidden");
+    render(d);
+  } catch {}
+}
+
+async function remove(v) {
+  if (!confirm('Xoá phiếu của "' + v.name + '"?')) return;
+  const r = await fetch("/api/votes?id=" + v.id, { method: "DELETE", headers: { "x-admin-key": key } });
+  if (!r.ok) alert("Xoá không thành công.");
+  load();
+}
+
+function logout(clearMsg = true) {
+  key = "";
+  sessionStorage.removeItem("hb_admin_key");
+  $("panel").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  if (clearMsg) $("msg").textContent = "";
+}
+
+$("login").addEventListener("submit", (e) => { e.preventDefault(); key = $("key").value.trim(); load(); });
+$("logout").onclick = () => logout();
+$("copy").onclick = async () => {
+  if (!data) return;
+  const lines = [
+    data.title,
+    "A – " + data.options.A + ": " + data.counts.A + " phiếu",
+    "B – " + data.options.B + ": " + data.counts.B + " phiếu",
+    "Tổng: " + data.total + " phiếu",
+    "",
+    ...data.votes.map((v, i) => (i + 1) + ". " + v.name + " – " + v.choice),
+  ];
+  try { await navigator.clipboard.writeText(lines.join("\n")); $("msg").textContent = "Đã sao chép."; }
+  catch { prompt("Sao chép nội dung dưới đây:", lines.join("\n")); }
+};
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>
