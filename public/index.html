@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bình chọn Hòa Bình</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="card">
+  <p class="eyebrow">Hòa Bình</p>
+  <h1 id="title">Bình chọn</h1>
+  <p id="question" class="muted"></p>
+  <p id="deadline" class="deadline"></p>
+
+  <label for="name">Tên của bạn</label>
+  <input id="name" maxlength="60" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn An">
+
+  <div class="choices">
+    <button class="choice" data-choice="A"><span class="letter">A</span><span class="label" id="labelA">…</span></button>
+    <button class="choice" data-choice="B"><span class="letter">B</span><span class="label" id="labelB">…</span></button>
+  </div>
+
+  <p id="msg" class="msg" role="status"></p>
+
+  <section class="results">
+    <h2>Kết quả <span id="total" class="muted"></span></h2>
+    <div class="bar-row"><span>A</span><div class="bar"><i id="barA"></i></div><b id="countA">0</b></div>
+    <div class="bar-row"><span>B</span><div class="bar"><i id="barB" class="b"></i></div><b id="countB">0</b></div>
+    <p class="muted small">Tự cập nhật mỗi 5 giây.</p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let voterId = localStorage.getItem("hb_voter_id");
+if (!voterId) {
+  voterId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  localStorage.setItem("hb_voter_id", voterId);
+}
+$("name").value = localStorage.getItem("hb_name") || "";
+
+let closed = false;
+let busy = false;
+
+function render(d) {
+  document.title = d.title;
+  $("title").textContent = d.title;
+  $("question").textContent = d.question;
+  $("labelA").textContent = d.options.A;
+  $("labelB").textContent = d.options.B;
+  closed = d.closed;
+  const dl = new Date(d.deadline).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+  $("deadline").textContent = closed ? "Đã hết hạn bình chọn (" + dl + ")." : "Hạn bình chọn: " + dl + " (giờ VN)";
+  $("deadline").classList.toggle("closed", closed);
+
+  const { A, B } = d.counts;
+  const t = d.total || 0;
+  $("countA").textContent = A;
+  $("countB").textContent = B;
+  $("barA").style.width = t ? (A / t * 100) + "%" : "0";
+  $("barB").style.width = t ? (B / t * 100) + "%" : "0";
+  $("total").textContent = "(" + t + " phiếu)";
+
+  document.querySelectorAll(".choice").forEach((b) => {
+    b.disabled = closed;
+    b.classList.toggle("selected", !!d.mine && d.mine.choice === b.dataset.choice);
+  });
+  if (d.mine && !$("msg").dataset.err) {
+    $("msg").textContent = d.mine.name + " đã chọn " + d.mine.choice + ". Muốn đổi ý, bấm phương án kia.";
+  }
+}
+
+async function load() {
+  try {
+    const r = await fetch("/api/votes?voterId=" + encodeURIComponent(voterId));
+    if (r.ok) render(await r.json());
+  } catch {}
+}
+
+async function vote(choice) {
+  if (busy || closed) return;
+  const name = $("name").value.trim();
+  const msg = $("msg");
+  if (name.length < 2) {
+    msg.textContent = "Vui lòng nhập tên trước khi chọn.";
+    msg.dataset.err = "1";
+    $("name").focus();
+    return;
+  }
+  busy = true;
+  msg.textContent = "Đang gửi…";
+  delete msg.dataset.err;
+  try {
+    const r = await fetch("/api/votes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ voterId, name, choice }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      msg.textContent = d.error || "Có lỗi, thử lại.";
+      msg.dataset.err = "1";
+    } else {
+      localStorage.setItem("hb_name", name);
+      render(d);
+    }
+  } catch {
+    msg.textContent = "Không kết nối được, thử lại.";
+    msg.dataset.err = "1";
+  } finally {
+    busy = false;
+  }
+}
+
+document.querySelectorAll(".choice").forEach((b) => b.addEventListener("click", () => vote(b.dataset.choice)));
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

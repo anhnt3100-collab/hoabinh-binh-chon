@@ -1,7 +1,11 @@
 # Đưa trang bình chọn Hòa Bình lên Netlify
 
 Trang gồm: `public/index.html` (trang bình chọn), `public/admin.html` (trang quản lý),
-`netlify/functions/votes.mjs` (lưu phiếu bằng Netlify Blobs), `netlify.toml`, `package.json`.
+`netlify/functions/votes.ts` (lưu phiếu bằng Netlify Database), `db/` và `netlify/database/migrations/`
+(cấu trúc bảng phiếu, Netlify tự tạo khi deploy), `netlify.toml`, `package.json`.
+
+Đổi tiêu đề, câu hỏi, tên phương án A/B: sửa phần "Cấu hình cuộc bình chọn" ở đầu file
+`netlify/functions/votes.ts`. Hai trang web tự lấy nội dung từ đó.
 
 Lưu ý: kéo-thả thư mục vào Netlify Drop KHÔNG chạy được phần lưu phiếu. Dùng cách 1 hoặc cách 2.
 
@@ -32,5 +36,5 @@ Lưu ý: kéo-thả thư mục vào Netlify Drop KHÔNG chạy được phần l
 - Quản lý: https://<ten-site>.netlify.app/admin.html → nhập ADMIN_KEY → xem tên, giờ bỏ phiếu,
   xoá phiếu sai/trùng, sao chép kết quả.
 - Hạn bình chọn: hết 23:59 ngày 10/11/2026 (giờ VN), máy chủ tự khoá. Muốn đổi hạn: sửa dòng
-  `DEADLINE` trong `netlify/functions/votes.mjs` và `public/index.html` (tìm "2026-11-10").
+  `DEADLINE` trong `netlify/functions/votes.ts` (chỉ cần sửa một chỗ).
 - Hai người không thể dùng cùng một tên. Mỗi máy/trình duyệt giữ một phiếu, đổi ý thì bấm phương án kia.
