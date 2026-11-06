@@ -1,0 +1,4 @@
+[build]
+  publish = "."
+  functions = "."
+  command = "echo build-ok"

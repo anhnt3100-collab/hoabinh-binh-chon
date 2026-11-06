@@ -1,0 +1,4 @@
+Ban phang (khong co thu muc con) - tai TAT CA file trong thu muc nay len thang goc repo GitHub:
+index.html, admin.html, votes.mjs, netlify.toml, package.json
+Bien moi truong tren Netlify: ADMIN_KEY (chu IN HOA).
+Trang quan ly: https://<ten-site>.netlify.app/admin.html
